@@ -17,3 +17,16 @@ class OrderPlaced(BaseModel):
     items: list[dict]
     total_amount: float
     shipping_address: str
+
+
+class OrderValidated(BaseModel):
+    event_id: UUID = Field(default_factory=uuid4)
+    event_type: str = "order.validated"
+    version: str = "1.0.0"
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    correlation_id: UUID
+
+    # Domain payload
+    event_id: UUID
+    customer_id: UUID
+    validated_at: UUID = Field(default_factory=datetime.utcnow)
