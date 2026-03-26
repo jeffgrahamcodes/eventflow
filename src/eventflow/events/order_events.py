@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class CancellationReason(StrEnum):
@@ -24,6 +24,20 @@ class OrderPlaced(BaseModel):
     items: list[dict]
     total_amount: float
     shipping_address: str
+
+    @field_validator("total_amount")
+    @classmethod
+    def total_amount_must_be_positive(cls, v: float) -> float:
+        if v <= 0:
+            raise ValueError(f"total_amount must be positive, got {v}")
+        return v
+
+    @field_validator("items")
+    @classmethod
+    def items_must_not_be_empty(cls, v: list[dict]) -> list[dict]:
+        if not v:
+            raise ValueError("items must not be empty")
+        return v
 
 
 class OrderValidated(BaseModel):

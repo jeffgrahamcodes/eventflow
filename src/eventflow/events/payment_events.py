@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class PaymentFailureReason(StrEnum):
@@ -27,6 +27,20 @@ class PaymentCharged(BaseModel):
     payment_method_last_four: str
     charged_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
+    @field_validator("charge_amount")
+    @classmethod
+    def charge_amount_must_be_positive(cls, v: float) -> float:
+        if v <= 0:
+            raise ValueError(f"charge_amount must be positive, got {v}")
+        return v
+
+    @field_validator("payment_method_last_four")
+    @classmethod
+    def must_be_four_digits(cls, v: str) -> str:
+        if not v.isdigit() or len(v) != 4:
+            raise ValueError(f"payment_method_last_four must be four digits, got {v}")
+        return v
+
 
 class PaymentFailed(BaseModel):
     event_id: UUID = Field(default_factory=uuid4)
@@ -41,3 +55,10 @@ class PaymentFailed(BaseModel):
     failure_amount: float
     reason: PaymentFailureReason
     failed_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    @field_validator("failure_amount")
+    @classmethod
+    def failure_amount_must_be_positive(cls, v: float) -> float:
+        if v <= 0:
+            raise ValueError(f"failure_amount must be positive, got {v}")
+        return v
