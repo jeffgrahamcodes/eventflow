@@ -55,3 +55,10 @@ class PaymentFailed(BaseModel):
     failure_amount: float
     reason: PaymentFailureReason
     failed_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    @field_validator("failure_amount")
+    @classmethod
+    def failure_amount_must_be_positive(cls, v: float) -> float:
+        if v <= 0:
+            raise ValueError(f"failure_amount must be positive, got {v}")
+        return v
