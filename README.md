@@ -1,4 +1,3 @@
-
 ## Getting Started
 
 ### Prerequisites
@@ -10,6 +9,7 @@
 ### Installation
 
 Clone the repo and install dependencies:
+
 ```bash
 git clone git@github.com:jeffgrahamcodes/eventflow.git
 cd eventflow
@@ -17,21 +17,25 @@ uv sync --extra dev
 ```
 
 ### Run the tests
+
 ```bash
 uv run pytest
 ```
 
 ### Run the linter
+
 ```bash
 uv run ruff check .
 ```
 
 ### Run the type checker
+
 ```bash
 uv run mypy src/
 ```
 
 ### Project Structure
+
 ```
 eventflow/
 ├── src/
