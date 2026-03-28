@@ -4,9 +4,16 @@ from uuid import UUID, uuid4
 import pytest
 from pydantic import ValidationError
 
-from eventflow.events import CancellationReason, OrderCancelled, OrderPlaced
+from eventflow.events import (
+    CancellationReason,
+    OrderCancelled,
+    OrderConfirmed,
+    OrderPlaced,
+    OrderValidated,
+)
 
 
+# OrderPlaced tests
 def test_order_placed_valid_construction() -> None:
     event = OrderPlaced(
         order_id=uuid4(),
@@ -99,6 +106,75 @@ def test_order_placed_round_trip_serialization() -> None:
     assert reconstructed.items == event.items
 
 
+# OrderValidated tests
+def test_order_validated_valid_construction() -> None:
+    event = OrderValidated(
+        order_id=uuid4(),
+        customer_id=uuid4(),
+        correlation_id=uuid4(),
+    )
+
+    assert event.event_type == "order.validated"
+
+
+def test_order_validated_requires_correlation_id() -> None:
+    with pytest.raises(ValidationError):
+        OrderValidated(  # type: ignore[call-arg]
+            order_id=uuid4(),
+            customer_id=uuid4(),
+        )
+
+
+def test_order_validated_round_trip_serialization() -> None:
+    event = OrderValidated(
+        order_id=uuid4(),
+        customer_id=uuid4(),
+        correlation_id=uuid4(),
+    )
+
+    json_str = event.model_dump_json()
+    reconstructed = OrderValidated.model_validate_json(json_str)
+
+    assert reconstructed.order_id == event.order_id
+    assert reconstructed.customer_id == event.customer_id
+    assert reconstructed.correlation_id == event.correlation_id
+
+
+# OrderConfirmed tests
+def test_order_confirmed_valid_construction() -> None:
+    event = OrderConfirmed(
+        order_id=uuid4(),
+        customer_id=uuid4(),
+        correlation_id=uuid4(),
+    )
+
+    assert event.event_type == "order.confirmed"
+
+
+def test_order_confirmed_requires_correlation_id() -> None:
+    with pytest.raises(ValidationError):
+        OrderConfirmed(  # type: ignore[call-arg]
+            order_id=uuid4(),
+            customer_id=uuid4(),
+        )
+
+
+def test_order_confirmed_round_trip_serialization() -> None:
+    event = OrderConfirmed(
+        order_id=uuid4(),
+        customer_id=uuid4(),
+        correlation_id=uuid4(),
+    )
+
+    json_str = event.model_dump_json()
+    reconstructed = OrderConfirmed.model_validate_json(json_str)
+
+    assert reconstructed.order_id == event.order_id
+    assert reconstructed.customer_id == event.customer_id
+    assert reconstructed.correlation_id == event.correlation_id
+
+
+# OrderCancelled tests
 def test_order_cancelled_valid_construction() -> None:
     event = OrderCancelled(
         order_id=uuid4(),
@@ -116,11 +192,11 @@ def test_order_cancelled_valid_construction() -> None:
 
 def test_order_cancelled_rejects_invalid_reason() -> None:
     with pytest.raises(ValidationError):
-        OrderCancelled(
+        OrderCancelled(  # type: ignore[arg-type]
             order_id=uuid4(),
             customer_id=uuid4(),
             correlation_id=uuid4(),
-            reason="invalid reason",
+            reason="invalid reason",  # type: ignore[arg-type]
         )
 
 
@@ -138,7 +214,7 @@ def test_order_cancelled_all_valid_reasons() -> None:
 
 def test_order_cancelled_requires_correlation_id() -> None:
     with pytest.raises(ValidationError):
-        OrderCancelled(
+        OrderCancelled(  # type: ignore[call-arg]
             order_id=uuid4(),
             customer_id=uuid4(),
             reason=CancellationReason.PAYMENT_FAILED,
