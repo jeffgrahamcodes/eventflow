@@ -4,7 +4,7 @@ from uuid import UUID, uuid4
 import pytest
 from pydantic import ValidationError
 
-from eventflow.events import OrderPlaced
+from eventflow.events import CancellationReason, OrderCancelled, OrderPlaced
 
 
 def test_order_placed_valid_construction() -> None:
@@ -97,3 +97,66 @@ def test_order_placed_round_trip_serialization() -> None:
     assert reconstructed.correlation_id == event.correlation_id
     assert reconstructed.total_amount == event.total_amount
     assert reconstructed.items == event.items
+
+
+def test_order_cancelled_valid_construction() -> None:
+    event = OrderCancelled(
+        order_id=uuid4(),
+        customer_id=uuid4(),
+        correlation_id=uuid4(),
+        reason=CancellationReason.PAYMENT_FAILED,
+    )
+
+    assert event.event_type == "order.cancelled"
+    assert event.version == "1.0.0"
+    assert event.reason == CancellationReason.PAYMENT_FAILED
+    assert isinstance(event.event_id, UUID)
+    assert isinstance(event.cancelled_at, datetime)
+
+
+def test_order_cancelled_rejects_invalid_reason() -> None:
+    with pytest.raises(ValidationError):
+        OrderCancelled(
+            order_id=uuid4(),
+            customer_id=uuid4(),
+            correlation_id=uuid4(),
+            reason="invalid reason",
+        )
+
+
+def test_order_cancelled_all_valid_reasons() -> None:
+    for reason in CancellationReason:
+        event = OrderCancelled(
+            order_id=uuid4(),
+            customer_id=uuid4(),
+            correlation_id=uuid4(),
+            reason=reason,
+        )
+
+        assert event.reason == reason
+
+
+def test_order_cancelled_requires_correlation_id() -> None:
+    with pytest.raises(ValidationError):
+        OrderCancelled(
+            order_id=uuid4(),
+            customer_id=uuid4(),
+            reason=CancellationReason.PAYMENT_FAILED,
+        )
+
+
+def test_order_cancelled_round_trip_serialization() -> None:
+    event = OrderCancelled(
+        order_id=uuid4(),
+        customer_id=uuid4(),
+        correlation_id=uuid4(),
+        reason=CancellationReason.STOCK_INSUFFICIENT,
+    )
+
+    json_str = event.model_dump_json()
+    reconstructed = OrderCancelled.model_validate_json(json_str)
+
+    assert reconstructed.order_id == event.order_id
+    assert reconstructed.customer_id == event.customer_id
+    assert reconstructed.reason == event.reason
+    assert reconstructed.correlation_id == event.correlation_id
