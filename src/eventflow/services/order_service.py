@@ -4,6 +4,7 @@ from eventflow.bus import EventBus
 from eventflow.events import (
     CancellationReason,
     OrderCancelled,
+    OrderConfirmed,
     OrderPlaced,
     OrderValidated,
     PaymentCharged,
@@ -59,10 +60,27 @@ class OrderService:
         self.bus.publish(validated)
 
     def handle_payment_charged(self, event: PaymentCharged) -> None:
-        pass
+        confirmed = OrderConfirmed(
+            order_id=event.order_id,
+            customer_id=event.customer_id,
+            correlation_id=event.correlation_id,
+        )
+        self.bus.publish(confirmed)
 
     def handle_payment_failed(self, event: PaymentFailed) -> None:
-        pass
+        cancelled = OrderCancelled(
+            order_id=event.order_id,
+            customer_id=event.customer_id,
+            correlation_id=event.correlation_id,
+            reason=CancellationReason.PAYMENT_FAILED,
+        )
+        self.bus.publish(cancelled)
 
     def handle_stock_insufficient(self, event: StockInsufficient) -> None:
-        pass
+        cancelled = OrderCancelled(
+            order_id=event.order_id,
+            customer_id=event.customer_id,
+            correlation_id=event.correlation_id,
+            reason=CancellationReason.STOCK_INSUFFICIENT,
+        )
+        self.bus.publish(cancelled)
