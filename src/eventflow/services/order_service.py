@@ -2,7 +2,10 @@ from uuid import UUID
 
 from eventflow.bus import EventBus
 from eventflow.events import (
+    CancellationReason,
+    OrderCancelled,
     OrderPlaced,
+    OrderValidated,
     PaymentCharged,
     PaymentFailed,
     StockInsufficient,
@@ -12,6 +15,7 @@ from eventflow.events import (
 class OrderService:
     def __init__(self, bus: EventBus) -> None:
         self.bus = bus
+        self.bus.subscribe("order.placed", self.validate_order)
         self.bus.subscribe("payment.charged", self.handle_payment_charged)
         self.bus.subscribe("payment.failed", self.handle_payment_failed)
         self.bus.subscribe("stock.insufficient", self.handle_stock_insufficient)
@@ -34,6 +38,25 @@ class OrderService:
 
         self.bus.publish(event)
         return event
+
+    def validate_order(self, event: OrderPlaced) -> None:
+        if not event.items or event.total_amount <= 0:
+            cancelled = OrderCancelled(
+                order_id=event.order_id,
+                customer_id=event.customer_id,
+                correlation_id=event.correlation_id,
+                reason=CancellationReason.CUSTOMER_REQUESTED,
+            )
+            self.bus.publish(cancelled)
+            return
+
+        validated = OrderValidated(
+            order_id=event.order_id,
+            customer_id=event.customer_id,
+            correlation_id=event.correlation_id,
+        )
+
+        self.bus.publish(validated)
 
     def handle_payment_charged(self, event: PaymentCharged) -> None:
         pass
