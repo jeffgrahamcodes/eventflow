@@ -4,7 +4,7 @@ from typing import Any
 import pytest
 
 
-class TestEventBus:
+class FakeEventBus:
     def __init__(self) -> None:
         self._handlers: dict[str, list[Callable[..., None]]] = {}
         self.published_events: list[Any] = []
@@ -21,5 +21,5 @@ class TestEventBus:
 
 
 @pytest.fixture
-def bus() -> TestEventBus:
-    return TestEventBus()
+def bus() -> FakeEventBus:
+    return FakeEventBus()

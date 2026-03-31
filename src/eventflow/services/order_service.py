@@ -41,7 +41,7 @@ class OrderService:
         return event
 
     def validate_order(self, event: OrderPlaced) -> None:
-        if not event.items or event.total_amount <= 0:
+        if any(item["quantity"] > 100 for item in event.items):
             cancelled = OrderCancelled(
                 order_id=event.order_id,
                 customer_id=event.customer_id,
@@ -56,7 +56,6 @@ class OrderService:
             customer_id=event.customer_id,
             correlation_id=event.correlation_id,
         )
-
         self.bus.publish(validated)
 
     def handle_payment_charged(self, event: PaymentCharged) -> None:
