@@ -1,10 +1,11 @@
 from collections.abc import Callable
 from typing import Any
+from eventflow.bus import EventBus
 
 import pytest
 
 
-class FakeEventBus:
+class FakeEventBus(EventBus):
     def __init__(self) -> None:
         self._handlers: dict[str, list[Callable[..., None]]] = {}
         self.published_events: list[Any] = []
