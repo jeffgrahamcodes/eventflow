@@ -35,6 +35,7 @@ clear choice.
 `event_type` string values.
 
 **Examples:**
+
 - Class: `OrderPlaced`, wire format: `"order.placed"`
 - Class: `PaymentFailed`, wire format: `"payment.failed"`
 
@@ -47,6 +48,7 @@ tense reflects that events are facts that already happened, not commands.
 ### 3. Envelope fields on every event
 
 **Decision:** Every event carries these fields regardless of domain:
+
 - `event_id` — unique ID for this event instance
 - `event_type` — dot-notation wire format string
 - `version` — schema version for future compatibility
@@ -100,3 +102,45 @@ if the validator is forgotten. `StrEnum` makes invalid values impossible.
   on field names and types
 - `version` field exists to support future schema evolution if breaking
   changes are required
+
+---
+
+## Addendum: OrderValidated Schema Update
+
+**Date:** 2026-04-02  
+**Status:** Accepted
+
+### Context
+
+During implementation of InventoryService (EF-010), it became clear that
+`OrderValidated` did not carry enough context for downstream consumers to
+act without looking up additional state. Specifically, InventoryService
+needs to know which items were ordered to check stock availability — but
+that information only existed on `OrderPlaced`.
+
+### Decision
+
+Add `items: list[dict]` to `OrderValidated`, threaded forward from
+`OrderPlaced` in the `validate_order` handler.
+
+### Alternatives Considered
+
+**Have InventoryService subscribe to `order.placed` directly** — rejected
+because stock reservation should only happen after validation passes.
+Subscribing to `OrderPlaced` would allow stock to be reserved for invalid
+orders.
+
+**Have InventoryService look up order items from a data store** — rejected
+because no data store exists in Phase 1, and adding a direct lookup
+dependency would couple InventoryService to a storage layer unnecessarily
+at this stage.
+
+### Consequences
+
+- `OrderValidated` now carries the full items list from `OrderPlaced`
+- All downstream consumers of `OrderValidated` have access to order items
+  without additional lookups
+- Any existing tests constructing `OrderValidated` without `items` must be
+  updated to include the field
+- This pattern — carrying relevant context forward on events — is now the
+  established convention for EventFlow
