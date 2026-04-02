@@ -1,8 +1,9 @@
 from collections.abc import Callable
 from typing import Any
-from eventflow.bus import EventBus
 
 import pytest
+
+from eventflow.bus import EventBus
 
 
 class FakeEventBus(EventBus):

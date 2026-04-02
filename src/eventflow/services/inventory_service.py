@@ -1,2 +1,21 @@
+from eventflow.bus import EventBus
+from eventflow.events import OrderValidated
+
+
 class InventoryService:
-    pass
+    def __init__(self, bus: EventBus) -> None:
+        self.bus = bus
+        self.bus.subscribe("order.validated", self.reserve_stock)
+        self.bus.subscribe("order.cancelled", self.release_stock)
+        self._inventory: dict[str, int] = {
+            "WIDGET-001": 50, 
+            "WIDGET-002": 12, 
+            "WIDGET-003": 25,
+            "WIDGET-005": 0,
+            }
+        
+    def reserve_stock(self, event: OrderValidated) -> None:
+        pass
+        
+    def release_stock(self, event: OrderValidated) -> None:
+        pass
