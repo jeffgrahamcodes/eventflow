@@ -64,7 +64,7 @@ def test_validate_order_cancels_when_quantity_exceeds_limit(
 
 
 def test_handle_payment_charged(bus: FakeEventBus) -> None:
-    service = OrderService(bus)
+    _service = OrderService(bus)
     bus.publish(
         PaymentCharged(
             order_id=uuid4(),
@@ -80,7 +80,7 @@ def test_handle_payment_charged(bus: FakeEventBus) -> None:
 
 
 def test_handle_payment_failed(bus: FakeEventBus) -> None:
-    service = OrderService(bus)
+    _service = OrderService(bus)
     bus.publish(
         PaymentFailed(
             order_id=uuid4(),
@@ -97,7 +97,7 @@ def test_handle_payment_failed(bus: FakeEventBus) -> None:
 
 
 def test_handle_stock_insufficient(bus: FakeEventBus) -> None:
-    service = OrderService(bus)
+    _service = OrderService(bus)
 
     bus.publish(
         StockInsufficient(
