@@ -55,6 +55,7 @@ class OrderService:
             order_id=event.order_id,
             customer_id=event.customer_id,
             correlation_id=event.correlation_id,
+            items=event.items,
         )
         self.bus.publish(validated)
 

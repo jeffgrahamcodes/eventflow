@@ -50,6 +50,7 @@ class OrderValidated(BaseModel):
     # Domain payload
     order_id: UUID
     customer_id: UUID
+    items: list[dict]
     validated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
