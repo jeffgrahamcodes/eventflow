@@ -112,6 +112,7 @@ def test_order_validated_valid_construction() -> None:
         order_id=uuid4(),
         customer_id=uuid4(),
         correlation_id=uuid4(),
+        items=[{"sku": "WIDGET-001", "quantity": 2, "price": 24.99}],
     )
 
     assert event.event_type == "order.validated"
@@ -130,6 +131,7 @@ def test_order_validated_round_trip_serialization() -> None:
         order_id=uuid4(),
         customer_id=uuid4(),
         correlation_id=uuid4(),
+        items=[{"sku": "WIDGET-001", "quantity": 2, "price": 24.99}],
     )
 
     json_str = event.model_dump_json()
@@ -181,6 +183,7 @@ def test_order_cancelled_valid_construction() -> None:
         customer_id=uuid4(),
         correlation_id=uuid4(),
         reason=CancellationReason.PAYMENT_FAILED,
+        items=[{"sku": "WIDGET-001", "quantity": 2, "price": 24.99}],
     )
 
     assert event.event_type == "order.cancelled"
@@ -197,6 +200,7 @@ def test_order_cancelled_rejects_invalid_reason() -> None:
             customer_id=uuid4(),
             correlation_id=uuid4(),
             reason="invalid reason",  # type: ignore[arg-type]
+            items=[{"sku": "WIDGET-001", "quantity": 2, "price": 24.99}],
         )
 
 
@@ -207,6 +211,7 @@ def test_order_cancelled_all_valid_reasons() -> None:
             customer_id=uuid4(),
             correlation_id=uuid4(),
             reason=reason,
+            items=[{"sku": "WIDGET-001", "quantity": 2, "price": 24.99}],
         )
 
         assert event.reason == reason
@@ -227,6 +232,7 @@ def test_order_cancelled_round_trip_serialization() -> None:
         customer_id=uuid4(),
         correlation_id=uuid4(),
         reason=CancellationReason.STOCK_INSUFFICIENT,
+        items=[{"sku": "WIDGET-001", "quantity": 2, "price": 24.99}],
     )
 
     json_str = event.model_dump_json()
@@ -236,3 +242,4 @@ def test_order_cancelled_round_trip_serialization() -> None:
     assert reconstructed.customer_id == event.customer_id
     assert reconstructed.reason == event.reason
     assert reconstructed.correlation_id == event.correlation_id
+    assert reconstructed.items == event.items

@@ -3,8 +3,10 @@ from typing import Any
 
 import pytest
 
+from eventflow.bus import EventBus
 
-class FakeEventBus:
+
+class FakeEventBus(EventBus):
     def __init__(self) -> None:
         self._handlers: dict[str, list[Callable[..., None]]] = {}
         self.published_events: list[Any] = []
