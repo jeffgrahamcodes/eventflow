@@ -16,7 +16,9 @@ from eventflow.events import (
 class OrderService:
     def __init__(self, bus: EventBus) -> None:
         self.bus = bus
+        self._pending_items: dict[UUID, list[dict]] = {}
         self.bus.subscribe("order.placed", self.validate_order)
+        self.bus.subscribe("order.validated", self.handle_order_validated)
         self.bus.subscribe("payment.charged", self.handle_payment_charged)
         self.bus.subscribe("payment.failed", self.handle_payment_failed)
         self.bus.subscribe("stock.insufficient", self.handle_stock_insufficient)
@@ -47,6 +49,7 @@ class OrderService:
                 customer_id=event.customer_id,
                 correlation_id=event.correlation_id,
                 reason=CancellationReason.CUSTOMER_REQUESTED,
+                items=event.items,
             )
             self.bus.publish(cancelled)
             return
@@ -60,6 +63,7 @@ class OrderService:
         self.bus.publish(validated)
 
     def handle_payment_charged(self, event: PaymentCharged) -> None:
+        self._pending_items.pop(event.order_id, [])
         confirmed = OrderConfirmed(
             order_id=event.order_id,
             customer_id=event.customer_id,
@@ -68,19 +72,26 @@ class OrderService:
         self.bus.publish(confirmed)
 
     def handle_payment_failed(self, event: PaymentFailed) -> None:
+        items = self._pending_items.pop(event.order_id, [])
         cancelled = OrderCancelled(
             order_id=event.order_id,
             customer_id=event.customer_id,
             correlation_id=event.correlation_id,
             reason=CancellationReason.PAYMENT_FAILED,
+            items=items,
         )
         self.bus.publish(cancelled)
 
     def handle_stock_insufficient(self, event: StockInsufficient) -> None:
+        items = self._pending_items.pop(event.order_id, [])
         cancelled = OrderCancelled(
             order_id=event.order_id,
             customer_id=event.customer_id,
             correlation_id=event.correlation_id,
             reason=CancellationReason.STOCK_INSUFFICIENT,
+            items=items,
         )
         self.bus.publish(cancelled)
+
+    def handle_order_validated(self, event: OrderValidated) -> None:
+        self._pending_items[event.order_id] = event.items

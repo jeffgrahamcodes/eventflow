@@ -144,3 +144,48 @@ at this stage.
   updated to include the field
 - This pattern — carrying relevant context forward on events — is now the
   established convention for EventFlow
+---
+
+## Addendum 2: OrderCancelled items field and _pending_items pattern
+
+**Date:** 2026-04-05  
+**Status:** Accepted
+
+### Context
+
+During implementation of `release_stock()` in InventoryService (EF-010),
+it became clear that `OrderCancelled` needed to carry the order items so
+InventoryService could restore the correct quantities back to the inventory
+store. The items payload only existed on `OrderPlaced` and `OrderValidated`.
+
+### Decision
+
+Add `items: list[dict]` to `OrderCancelled`. Rather than threading items
+through every intermediate event (`PaymentFailed`, `StockInsufficient`),
+`OrderService` maintains an internal `_pending_items` dictionary that maps
+`order_id` to items while an order is in flight.
+
+`handle_order_validated` stores the items:
+```python
+self._pending_items[event.order_id] = event.items
+```
+
+Each terminal handler retrieves and removes them with `.pop()`:
+```python
+items = self._pending_items.pop(event.order_id, [])
+```
+
+### Alternatives Considered
+
+**Thread `items` through every downstream event** — rejected because it
+would require adding `items` to `PaymentFailed`, `StockInsufficient`, and
+any future failure events. Each intermediate event would carry payload it
+does not need for its own purpose, bloating the wire format.
+
+### Consequences
+
+- `OrderCancelled` now carries `items` — all constructions must include it
+- `OrderService` is stateful — it holds in-flight order data in memory
+- `.pop()` on terminal states prevents memory leaks in long-running processes
+- This pattern is appropriate for Phase 1 — in Phase 2 this state moves to
+  DynamoDB where it survives Lambda cold starts and container recycling
