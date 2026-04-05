@@ -228,3 +228,50 @@ would couple PaymentService to storage unnecessarily at this stage.
 - PaymentService can charge the correct amount directly from `StockReserved`
 - In Phase 2, `total_amount` on the event becomes the authoritative charge
   amount — the DynamoDB order record serves as the audit trail
+
+---
+
+## Addendum 4: PaymentService _pending_charges pattern for refund amount
+
+**Date:** 2026-04-05  
+**Status:** Accepted
+
+### Context
+
+During implementation of `refund()` in PaymentService (EF-011), it became
+clear that `OrderCancelled` does not carry the original charge amount needed
+to issue a refund. The charge amount only exists on `PaymentCharged`, which
+fires earlier in the pipeline.
+
+### Decision
+
+PaymentService maintains an internal `_pending_charges` dictionary that maps
+`order_id` to `charge_amount` while a payment is in flight.
+
+`handle_payment_charged` stores the amount: `self._pending_charges[event.order_id] = event.charge_amount`
+
+`refund()` retrieves and removes it with `.pop()`: `refund_amount = self._pending_charges.pop(event.order_id, 0.0)`
+
+### Alternatives Considered
+
+**Add `charge_amount` to `OrderCancelled`** — rejected because
+`OrderCancelled` is emitted by `OrderService` which has no knowledge of
+whether a payment was charged or how much it was. Adding payment data to
+an order event violates the service boundary — payment concerns belong in
+`PaymentService`, not in `OrderService`.
+
+**Have PaymentService look up the charge amount from a data store** —
+rejected because no data store exists in Phase 1. In Phase 2 the charge
+amount will be stored in DynamoDB and this pattern will be replaced by a
+direct lookup.
+
+### Consequences
+
+- `PaymentService` is stateful — it holds in-flight charge amounts in memory
+- `PaymentService` subscribes to `payment.charged` to capture its own output
+- `.pop()` on `refund()` prevents memory leaks in long-running processes
+- `0.0` as the default in `.pop()` handles the edge case where `refund()`
+  fires for an order that was never charged — no payment was taken so no
+  refund is issued
+- In Phase 2 this state moves to DynamoDB where it survives Lambda cold
+  starts and container recycling
