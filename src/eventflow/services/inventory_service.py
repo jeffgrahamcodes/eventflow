@@ -58,6 +58,7 @@ class InventoryService:
                 customer_id=event.customer_id,
                 correlation_id=event.correlation_id,
                 reserved_items=reserved_items,
+                total_amount=event.total_amount,
             )
         )
 

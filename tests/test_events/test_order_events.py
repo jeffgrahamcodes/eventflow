@@ -113,6 +113,7 @@ def test_order_validated_valid_construction() -> None:
         customer_id=uuid4(),
         correlation_id=uuid4(),
         items=[{"sku": "WIDGET-001", "quantity": 2, "price": 24.99}],
+        total_amount=49.98,
     )
 
     assert event.event_type == "order.validated"
@@ -132,6 +133,7 @@ def test_order_validated_round_trip_serialization() -> None:
         customer_id=uuid4(),
         correlation_id=uuid4(),
         items=[{"sku": "WIDGET-001", "quantity": 2, "price": 24.99}],
+        total_amount=49.98,
     )
 
     json_str = event.model_dump_json()

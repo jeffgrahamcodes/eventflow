@@ -51,6 +51,7 @@ class OrderValidated(BaseModel):
     order_id: UUID
     customer_id: UUID
     items: list[dict]
+    total_amount: float
     validated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 

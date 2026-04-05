@@ -15,6 +15,7 @@ class StockReserved(BaseModel):
     order_id: UUID
     customer_id: UUID
     reserved_items: list[dict]
+    total_amount: float
     reserved_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 

@@ -20,6 +20,7 @@ def test_reserve_stock_publishes_stock_reserved_event(bus: FakeEventBus) -> None
             customer_id=uuid4(),
             correlation_id=uuid4(),
             items=[{"sku": "WIDGET-001", "quantity": 2, "price": 24.99}],
+            total_amount=49.98,
         )
     )
 
@@ -38,6 +39,7 @@ def test_reserve_stock_publishes_stock_insufficient_event_when_quantity_unavaila
             customer_id=uuid4(),
             correlation_id=uuid4(),
             items=[{"sku": "WIDGET-OOS", "quantity": 1, "price": 24.99}],
+            total_amount=49.98,
         )
     )
 
