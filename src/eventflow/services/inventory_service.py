@@ -13,21 +13,21 @@ class InventoryService:
         self.bus.subscribe("order.validated", self.reserve_stock)
         self.bus.subscribe("order.cancelled", self.release_stock)
         self._inventory: dict[str, int] = {
-            "WIDGET-001": 50, 
-            "WIDGET-002": 12, 
+            "WIDGET-001": 50,
+            "WIDGET-002": 12,
             "WIDGET-003": 25,
             "WIDGET-OOS": 0,
-            }
-        
+        }
+
     def reserve_stock(self, event: OrderValidated) -> None:
         available_quantities = []
         insufficient_items = []
-        
+
         for item in event.items:
             sku = item["sku"]
             quantity = item["quantity"]
             available = self._inventory.get(sku, 0)
-            
+
             if available < quantity:
                 insufficient_items.append({"sku": sku, "quantity": quantity})
                 available_quantities.append({"sku": sku, "available": available})
@@ -43,7 +43,7 @@ class InventoryService:
                 )
             )
             return
-        
+
         # All items available — reserve them
         reserved_items = []
         for item in event.items:
@@ -60,6 +60,9 @@ class InventoryService:
                 reserved_items=reserved_items,
             )
         )
-        
+
     def release_stock(self, event: OrderCancelled) -> None:
-        pass
+        for item in event.items:
+            sku = item["sku"]
+            quantity = item["quantity"]
+            self._inventory[sku] += quantity
