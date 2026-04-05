@@ -11,6 +11,7 @@ flowchart LR
     NS[NotificationService] -->|CustomerNotified| EB
 
     EB -->|OrderValidated| IS
+    EB -->|OrderCancelled| IS
     EB -->|StockReserved| PS
     EB -->|OrderConfirmed| NS
     EB -->|OrderCancelled| NS
