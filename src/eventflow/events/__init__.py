@@ -11,6 +11,7 @@ from eventflow.events.payment_events import (
     PaymentCharged,
     PaymentFailed,
     PaymentFailureReason,
+    PaymentRefunded,
 )
 
 __all__ = [
@@ -26,4 +27,5 @@ __all__ = [
     "PaymentFailureReason",
     "StockInsufficient",
     "StockReserved",
+    "PaymentRefunded",
 ]

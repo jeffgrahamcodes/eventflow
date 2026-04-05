@@ -189,3 +189,42 @@ does not need for its own purpose, bloating the wire format.
 - `.pop()` on terminal states prevents memory leaks in long-running processes
 - This pattern is appropriate for Phase 1 — in Phase 2 this state moves to
   DynamoDB where it survives Lambda cold starts and container recycling
+
+---
+
+## Addendum 3: total_amount threading through OrderValidated and StockReserved
+
+**Date:** 2026-04-05  
+**Status:** Accepted
+
+### Context
+
+During implementation of PaymentService (EF-011), it became clear that
+`StockReserved` did not carry the order total amount that PaymentService
+needs to charge the customer. The total amount only existed on `OrderPlaced`.
+
+### Decision
+
+Add `total_amount: float` to both `OrderValidated` and `StockReserved`,
+threading it forward from `OrderPlaced` through the event chain:
+
+`OrderPlaced.total_amount` → `OrderValidated.total_amount` → `StockReserved.total_amount` → `PaymentService.charge()`
+
+### Alternatives Considered
+
+**Store `total_amount` in `InventoryService._pending_amounts`** — rejected
+because `total_amount` is a natural property of a stock reservation. An
+order worth a specific amount is being reserved. The amount belongs on the
+event, not in service state.
+
+**Have PaymentService look up the order total from a data store** — rejected
+because no data store exists in Phase 1, and adding a lookup dependency
+would couple PaymentService to storage unnecessarily at this stage.
+
+### Consequences
+
+- `OrderValidated` and `StockReserved` now carry `total_amount`
+- All existing constructions of both events must include `total_amount`
+- PaymentService can charge the correct amount directly from `StockReserved`
+- In Phase 2, `total_amount` on the event becomes the authoritative charge
+  amount — the DynamoDB order record serves as the audit trail
