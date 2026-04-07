@@ -14,7 +14,7 @@ class NotificationService:
         self.bus = bus
         self.bus.subscribe("order.confirmed", self.handle_order_confirmed)
         self.bus.subscribe("order.cancelled", self.handle_order_cancelled)
-        self.bus.subscribe("payment.failed  ", self.handle_payment_failed)
+        self.bus.subscribe("payment.failed", self.handle_payment_failed)
         self.bus.subscribe("stock.insufficient", self.handle_stock_insufficient)
 
     def handle_order_confirmed(self, event: OrderConfirmed) -> None:
