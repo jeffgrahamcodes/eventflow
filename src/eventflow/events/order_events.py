@@ -50,6 +50,8 @@ class OrderValidated(BaseModel):
     # Domain payload
     order_id: UUID
     customer_id: UUID
+    items: list[dict]
+    total_amount: float
     validated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
@@ -77,4 +79,5 @@ class OrderCancelled(BaseModel):
     order_id: UUID
     customer_id: UUID
     reason: CancellationReason
+    items: list[dict]
     cancelled_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

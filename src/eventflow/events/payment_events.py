@@ -62,3 +62,17 @@ class PaymentFailed(BaseModel):
         if v <= 0:
             raise ValueError(f"failure_amount must be positive, got {v}")
         return v
+
+
+class PaymentRefunded(BaseModel):
+    event_id: UUID = Field(default_factory=uuid4)
+    event_type: str = "payment.refunded"
+    version: str = "1.0.0"
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    correlation_id: UUID
+
+    # Domain payload
+    order_id: UUID
+    customer_id: UUID
+    refund_amount: float
+    refunded_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
