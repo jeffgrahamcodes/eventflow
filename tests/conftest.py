@@ -1,4 +1,3 @@
-from collections.abc import Callable
 from typing import Any
 
 import pytest
@@ -14,6 +13,7 @@ class FakeEventBus(EventBus):
     def publish(self, event: Any) -> None:
         self.published_events.append(event)
         super().publish(event)
+
 
 @pytest.fixture
 def bus() -> FakeEventBus:
