@@ -44,7 +44,9 @@ class PaymentService:
         )
 
     def refund(self, event: OrderCancelled) -> None:
-        refund_amount = self._pending_charges.pop(event.order_id, 0.0)
+        refund_amount = self._pending_charges.pop(event.order_id, None)
+        if refund_amount is None:
+            return
         self.bus.publish(
             PaymentRefunded(
                 order_id=event.order_id,
