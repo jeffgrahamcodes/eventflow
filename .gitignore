@@ -8,3 +8,8 @@ htmlcov/
 .coverage
 dist/
 *.egg-info/
+
+# CDK
+infra/cdk.out/
+infra/dist/
+infra/node_modules/
