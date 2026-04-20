@@ -2,6 +2,8 @@ import * as cdk from "aws-cdk-lib";
 import * as events from "aws-cdk-lib/aws-events";
 import * as sqs from "aws-cdk-lib/aws-sqs";
 import * as targets from "aws-cdk-lib/aws-events-targets";
+import * as lambda from "aws-cdk-lib/aws-lambda";
+import * as pythonLambda from "@aws-cdk/aws-lambda-python-alpha";
 import { Construct } from "constructs";
 
 export class EventFlowStack extends cdk.Stack {
