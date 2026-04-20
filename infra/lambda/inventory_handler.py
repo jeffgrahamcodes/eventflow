@@ -3,14 +3,13 @@ from typing import Any
 
 from eventflow.bus import EventBus
 from eventflow.events import (
-    PaymentCharged,
-    PaymentFailed,
-    StockInsufficient,
+    OrderCancelled,
+    OrderValidated,
 )
-from eventflow.services.order_service import OrderService
+from eventflow.services.inventory_service import InventoryService
 
 bus = EventBus()
-order_service = OrderService(bus)
+inventory_service = InventoryService(bus)
 
 
 def handler(event: dict[str, Any], context: Any) -> None:
@@ -19,12 +18,9 @@ def handler(event: dict[str, Any], context: Any) -> None:
         detail_type = body["detail-type"]
         detail = body["detail"]
 
-        if detail_type == "payment.charged":
-            event_obj = PaymentCharged.model_validate(detail)
-            order_service.handle_payment_charged(event_obj)
-        elif detail_type == "payment.failed":
-            event_obj = PaymentFailed.model_validate(detail)
-            order_service.handle_payment_failed(event_obj)
-        elif detail_type == "stock.insufficient":
-            event_obj = StockInsufficient.model_validate(detail)
-            order_service.handle_stock_insufficient(event_obj)
+        if detail_type == "order.validated":
+            event_obj = OrderValidated.model_validate(detail)
+            inventory_service.reserve_stock(event_obj)
+        elif detail_type == "order.cancelled":
+            event_obj = OrderCancelled.model_validate(detail)
+            inventory_service.release_stock(event_obj)
