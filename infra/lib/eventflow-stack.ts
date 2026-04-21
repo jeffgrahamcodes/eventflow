@@ -206,5 +206,104 @@ export class EventFlowStack extends cdk.Stack {
         batchSize: 1,
       }),
     );
+
+    const inventoryHandler = new pythonLambda.PythonFunction(
+      this,
+      "InventoryHandler",
+      {
+        entry: "../",
+        index: "infra/lambda/inventory_handler.py",
+        handler: "handler",
+        runtime: lambda.Runtime.PYTHON_3_12,
+        memorySize: 256,
+        timeout: cdk.Duration.seconds(10),
+        environment: {
+          POWERTOOLS_SERVICE_NAME: "inventory-service",
+        },
+        bundling: {
+          assetExcludes: [
+            "infra/cdk.out",
+            "infra/node_modules",
+            "infra/dist",
+            ".venv",
+            ".git",
+            "__pycache__",
+            "*.pyc",
+          ],
+        },
+      },
+    );
+
+    inventoryHandler.addEventSource(
+      new lambdaEventSources.SqsEventSource(this.inventoryQueue, {
+        batchSize: 1,
+      }),
+    );
+
+    const paymentHandler = new pythonLambda.PythonFunction(
+      this,
+      "PaymentHandler",
+      {
+        entry: "../",
+        index: "infra/lambda/payment_handler.py",
+        handler: "handler",
+        runtime: lambda.Runtime.PYTHON_3_12,
+        memorySize: 256,
+        timeout: cdk.Duration.seconds(10),
+        environment: {
+          POWERTOOLS_SERVICE_NAME: "payment-service",
+        },
+        bundling: {
+          assetExcludes: [
+            "infra/cdk.out",
+            "infra/node_modules",
+            "infra/dist",
+            ".venv",
+            ".git",
+            "__pycache__",
+            "*.pyc",
+          ],
+        },
+      },
+    );
+
+    paymentHandler.addEventSource(
+      new lambdaEventSources.SqsEventSource(this.paymentQueue, {
+        batchSize: 1,
+      }),
+    );
+
+    const notificationHandler = new pythonLambda.PythonFunction(
+      this,
+      "NotificationHandler",
+      {
+        entry: "../",
+        index: "infra/lambda/notification_handler.py",
+        handler: "handler",
+        runtime: lambda.Runtime.PYTHON_3_12,
+        memorySize: 256,
+        timeout: cdk.Duration.seconds(10),
+        environment: {
+          POWERTOOLS_SERVICE_NAME: "notification-service",
+        },
+        bundling: {
+          assetExcludes: [
+            "infra/cdk.out",
+            "infra/node_modules",
+            "infra/dist",
+            ".venv",
+            ".git",
+            "__pycache__",
+            "*.pyc",
+          ],
+        },
+      },
+    );
+
+    notificationHandler.addEventSource(
+      new lambdaEventSources.SqsEventSource(this.notificationQueue, {
+        batchSize: 1,
+      }),
+    );
   }
 }
