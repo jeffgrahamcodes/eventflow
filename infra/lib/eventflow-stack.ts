@@ -2,6 +2,9 @@ import * as cdk from "aws-cdk-lib";
 import * as events from "aws-cdk-lib/aws-events";
 import * as sqs from "aws-cdk-lib/aws-sqs";
 import * as targets from "aws-cdk-lib/aws-events-targets";
+import * as lambda from "aws-cdk-lib/aws-lambda";
+import * as pythonLambda from "@aws-cdk/aws-lambda-python-alpha";
+import * as lambdaEventSources from "aws-cdk-lib/aws-lambda-event-sources";
 import { Construct } from "constructs";
 
 export class EventFlowStack extends cdk.Stack {
@@ -174,5 +177,133 @@ export class EventFlowStack extends cdk.Stack {
       },
       targets: [new targets.SqsQueue(this.notificationQueue)],
     });
+
+    const orderHandler = new pythonLambda.PythonFunction(this, "OrderHandler", {
+      entry: "../",
+      index: "infra/lambda/order_handler.py",
+      handler: "handler",
+      runtime: lambda.Runtime.PYTHON_3_12,
+      memorySize: 256,
+      timeout: cdk.Duration.seconds(10),
+      environment: {
+        POWERTOOLS_SERVICE_NAME: "order-service",
+      },
+      bundling: {
+        assetExcludes: [
+          "infra/cdk.out",
+          "infra/node_modules",
+          "infra/dist",
+          ".venv",
+          ".git",
+          "__pycache__",
+          "*.pyc",
+        ],
+      },
+    });
+
+    orderHandler.addEventSource(
+      new lambdaEventSources.SqsEventSource(this.orderQueue, {
+        batchSize: 1,
+      }),
+    );
+
+    const inventoryHandler = new pythonLambda.PythonFunction(
+      this,
+      "InventoryHandler",
+      {
+        entry: "../",
+        index: "infra/lambda/inventory_handler.py",
+        handler: "handler",
+        runtime: lambda.Runtime.PYTHON_3_12,
+        memorySize: 256,
+        timeout: cdk.Duration.seconds(10),
+        environment: {
+          POWERTOOLS_SERVICE_NAME: "inventory-service",
+        },
+        bundling: {
+          assetExcludes: [
+            "infra/cdk.out",
+            "infra/node_modules",
+            "infra/dist",
+            ".venv",
+            ".git",
+            "__pycache__",
+            "*.pyc",
+          ],
+        },
+      },
+    );
+
+    inventoryHandler.addEventSource(
+      new lambdaEventSources.SqsEventSource(this.inventoryQueue, {
+        batchSize: 1,
+      }),
+    );
+
+    const paymentHandler = new pythonLambda.PythonFunction(
+      this,
+      "PaymentHandler",
+      {
+        entry: "../",
+        index: "infra/lambda/payment_handler.py",
+        handler: "handler",
+        runtime: lambda.Runtime.PYTHON_3_12,
+        memorySize: 256,
+        timeout: cdk.Duration.seconds(10),
+        environment: {
+          POWERTOOLS_SERVICE_NAME: "payment-service",
+        },
+        bundling: {
+          assetExcludes: [
+            "infra/cdk.out",
+            "infra/node_modules",
+            "infra/dist",
+            ".venv",
+            ".git",
+            "__pycache__",
+            "*.pyc",
+          ],
+        },
+      },
+    );
+
+    paymentHandler.addEventSource(
+      new lambdaEventSources.SqsEventSource(this.paymentQueue, {
+        batchSize: 1,
+      }),
+    );
+
+    const notificationHandler = new pythonLambda.PythonFunction(
+      this,
+      "NotificationHandler",
+      {
+        entry: "../",
+        index: "infra/lambda/notification_handler.py",
+        handler: "handler",
+        runtime: lambda.Runtime.PYTHON_3_12,
+        memorySize: 256,
+        timeout: cdk.Duration.seconds(10),
+        environment: {
+          POWERTOOLS_SERVICE_NAME: "notification-service",
+        },
+        bundling: {
+          assetExcludes: [
+            "infra/cdk.out",
+            "infra/node_modules",
+            "infra/dist",
+            ".venv",
+            ".git",
+            "__pycache__",
+            "*.pyc",
+          ],
+        },
+      },
+    );
+
+    notificationHandler.addEventSource(
+      new lambdaEventSources.SqsEventSource(this.notificationQueue, {
+        batchSize: 1,
+      }),
+    );
   }
 }

@@ -13,9 +13,13 @@ flowchart LR
     EB -->|OrderValidated| IS
     EB -->|OrderCancelled| IS
     EB -->|StockReserved| PS
+    EB -->|PaymentCharged| PS
+    EB -->|OrderCancelled| PS
+    EB -->|PaymentCharged| OS
     EB -->|OrderConfirmed| NS
     EB -->|OrderCancelled| NS
     EB -->|PaymentFailed| NS
     EB -->|PaymentFailed| OS
     EB -->|StockInsufficient| OS
+    EB -->|StockInsufficient| NS
 ```
