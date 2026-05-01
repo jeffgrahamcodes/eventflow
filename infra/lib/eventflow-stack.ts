@@ -207,6 +207,8 @@ export class EventFlowStack extends cdk.Stack {
       }),
     );
 
+    this.bus.grantPutEventsTo(orderHandler);
+
     const inventoryHandler = new pythonLambda.PythonFunction(
       this,
       "InventoryHandler",
@@ -239,6 +241,8 @@ export class EventFlowStack extends cdk.Stack {
         batchSize: 1,
       }),
     );
+
+    this.bus.grantPutEventsTo(inventoryHandler);
 
     const paymentHandler = new pythonLambda.PythonFunction(
       this,
@@ -273,6 +277,8 @@ export class EventFlowStack extends cdk.Stack {
       }),
     );
 
+    this.bus.grantPutEventsTo(paymentHandler);
+
     const notificationHandler = new pythonLambda.PythonFunction(
       this,
       "NotificationHandler",
@@ -305,5 +311,7 @@ export class EventFlowStack extends cdk.Stack {
         batchSize: 1,
       }),
     );
+
+    this.bus.grantPutEventsTo(notificationHandler);
   }
 }
