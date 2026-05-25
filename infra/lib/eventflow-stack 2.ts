@@ -1,5 +1,4 @@
 import * as cdk from "aws-cdk-lib";
-import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as events from "aws-cdk-lib/aws-events";
 import * as sqs from "aws-cdk-lib/aws-sqs";
 import * as targets from "aws-cdk-lib/aws-events-targets";
@@ -14,9 +13,6 @@ export class EventFlowStack extends cdk.Stack {
   public readonly inventoryQueue: sqs.Queue;
   public readonly paymentQueue: sqs.Queue;
   public readonly notificationQueue: sqs.Queue;
-  public readonly ordersTable: dynamodb.Table;
-  public readonly inventoryTable: dynamodb.Table;
-  public readonly paymentRecordsTable: dynamodb.Table;
 
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
@@ -211,8 +207,6 @@ export class EventFlowStack extends cdk.Stack {
       }),
     );
 
-    this.bus.grantPutEventsTo(orderHandler);
-
     const inventoryHandler = new pythonLambda.PythonFunction(
       this,
       "InventoryHandler",
@@ -245,8 +239,6 @@ export class EventFlowStack extends cdk.Stack {
         batchSize: 1,
       }),
     );
-
-    this.bus.grantPutEventsTo(inventoryHandler);
 
     const paymentHandler = new pythonLambda.PythonFunction(
       this,
@@ -281,8 +273,6 @@ export class EventFlowStack extends cdk.Stack {
       }),
     );
 
-    this.bus.grantPutEventsTo(paymentHandler);
-
     const notificationHandler = new pythonLambda.PythonFunction(
       this,
       "NotificationHandler",
@@ -314,59 +304,6 @@ export class EventFlowStack extends cdk.Stack {
       new lambdaEventSources.SqsEventSource(this.notificationQueue, {
         batchSize: 1,
       }),
-    );
-
-    this.bus.grantPutEventsTo(notificationHandler);
-
-    this.ordersTable = new dynamodb.Table(this, "OrdersTable", {
-      tableName: "eventflow-orders",
-      partitionKey: {
-        name: "order_id",
-        type: dynamodb.AttributeType.STRING,
-      },
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      removalPolicy: cdk.RemovalPolicy.DESTROY,
-    });
-
-    this.inventoryTable = new dynamodb.Table(this, "InventoryTable", {
-      tableName: "eventflow-inventory",
-      partitionKey: {
-        name: "sku_id",
-        type: dynamodb.AttributeType.STRING,
-      },
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      removalPolicy: cdk.RemovalPolicy.DESTROY,
-    });
-
-    this.paymentRecordsTable = new dynamodb.Table(this, "PaymentRecordsTable", {
-      tableName: "eventflow-payment-records",
-      partitionKey: {
-        name: "payment_id",
-        type: dynamodb.AttributeType.STRING,
-      },
-      sortKey: {
-        name: "order_id",
-        type: dynamodb.AttributeType.STRING,
-      },
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      removalPolicy: cdk.RemovalPolicy.DESTROY,
-    });
-
-    this.ordersTable.grantReadWriteData(orderHandler);
-    this.inventoryTable.grantReadWriteData(inventoryHandler);
-    this.paymentRecordsTable.grantReadWriteData(paymentHandler);
-
-    orderHandler.addEnvironment(
-      "ORDERS_TABLE_NAME",
-      this.ordersTable.tableName,
-    );
-    inventoryHandler.addEnvironment(
-      "INVENTORY_TABLE_NAME",
-      this.inventoryTable.tableName,
-    );
-    paymentHandler.addEnvironment(
-      "PAYMENT_RECORDS_TABLE_NAME",
-      this.paymentRecordsTable.tableName,
     );
   }
 }
