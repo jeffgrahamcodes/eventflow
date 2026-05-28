@@ -1,9 +1,24 @@
 import json
+import os
 from typing import Any
+
+import boto3
 
 from eventflow.bus import EventBus
 from eventflow.events import OrderCancelled, PaymentCharged, StockReserved
 from eventflow.services.payment_service import PaymentService
+
+secrets_client = boto3.client("secretsmanager")
+
+
+def get_payment_credentials() -> dict:
+    secret_arn = os.environ["PAYMENT_SECRET_ARN"]
+    response = secrets_client.get_secret_value(SecretId=secret_arn)
+    return json.loads(response["SecretString"])
+
+
+payment_credentials = get_payment_credentials()
+
 
 bus = EventBus()
 payment_service = PaymentService(bus)
