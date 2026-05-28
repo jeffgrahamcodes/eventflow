@@ -6,6 +6,7 @@ import * as targets from "aws-cdk-lib/aws-events-targets";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as pythonLambda from "@aws-cdk/aws-lambda-python-alpha";
 import * as lambdaEventSources from "aws-cdk-lib/aws-lambda-event-sources";
+import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import { Construct } from "constructs";
 
 export class EventFlowStack extends cdk.Stack {
@@ -367,6 +368,29 @@ export class EventFlowStack extends cdk.Stack {
     paymentHandler.addEnvironment(
       "PAYMENT_RECORDS_TABLE_NAME",
       this.paymentRecordsTable.tableName,
+    );
+
+    const paymentSecret = new secretsmanager.Secret(
+      this,
+      "PaymentCredentials",
+      {
+        secretName: "eventflow/payment-credentials",
+        description: "EventFlow payment service credentials",
+        generateSecretString: {
+          secretStringTemplate: JSON.stringify({
+            api_key: "stub-api-key",
+            endpoint: "https://stub-payment-processor.example.com",
+          }),
+          generateStringKey: "stub_secret",
+        },
+      },
+    );
+
+    paymentSecret.grantRead(paymentHandler);
+
+    paymentHandler.addEnvironment(
+      "PAYMENT_SECRET_ARN",
+      paymentSecret.secretArn,
     );
   }
 }

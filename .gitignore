@@ -13,3 +13,4 @@ dist/
 infra/cdk.out/
 infra/dist/
 infra/node_modules/
+.DS_Store
