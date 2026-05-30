@@ -9,7 +9,6 @@ import * as lambdaEventSources from "aws-cdk-lib/aws-lambda-event-sources";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import * as cloudwatch from "aws-cdk-lib/aws-cloudwatch";
 import { Construct } from "constructs";
-import { error } from "node:console";
 
 export class EventFlowStack extends cdk.Stack {
   public readonly bus: events.EventBus;
@@ -453,6 +452,8 @@ export class EventFlowStack extends cdk.Stack {
       evaluationPeriods: 1,
       comparisonOperator:
         cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      alarmName: "eventflow-order-dlq-not-empty",
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
     });
 
     const inventoryDlqAlarm = new cloudwatch.Alarm(this, "InventoryDlqAlarm", {
@@ -461,6 +462,8 @@ export class EventFlowStack extends cdk.Stack {
       evaluationPeriods: 1,
       comparisonOperator:
         cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      alarmName: "eventflow-inventory-dlq-not-empty",
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
     });
 
     const paymentDlqAlarm = new cloudwatch.Alarm(this, "PaymentDlqAlarm", {
@@ -469,6 +472,8 @@ export class EventFlowStack extends cdk.Stack {
       evaluationPeriods: 1,
       comparisonOperator:
         cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      alarmName: "eventflow-payment-dlq-not-empty",
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
     });
 
     const notificationDlqAlarm = new cloudwatch.Alarm(
@@ -480,6 +485,8 @@ export class EventFlowStack extends cdk.Stack {
         evaluationPeriods: 1,
         comparisonOperator:
           cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+        alarmName: "eventflow-notification-dlq-not-empty",
+        treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
       },
     );
 
