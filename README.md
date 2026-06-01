@@ -11,7 +11,7 @@ implementation, not a tutorial project.
 
 ## Architecture
 
-_Diagram coming in Sprint 3 — AWS infrastructure phase._
+Diagram coming in Sprint 3 — AWS infrastructure phase.\_
 
 ## Getting Started
 
