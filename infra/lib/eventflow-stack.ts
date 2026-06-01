@@ -184,9 +184,18 @@ export class EventFlowStack extends cdk.Stack {
       targets: [new targets.SqsQueue(this.notificationQueue)],
     });
 
+    new events.Rule(this, "OrderPlaced", {
+      eventBus: this.bus,
+      ruleName: "eventflow-order-placed",
+      eventPattern: {
+        detailType: ["order.placed"],
+      },
+      targets: [new targets.SqsQueue(this.orderQueue)],
+    });
+
     const orderHandler = new pythonLambda.PythonFunction(this, "OrderHandler", {
-      entry: "../",
-      index: "infra/lambda/order_handler.py",
+      entry: "../src",
+      index: "eventflow/handlers/order_handler.py",
       handler: "handler",
       runtime: lambda.Runtime.PYTHON_3_12,
       memorySize: 256,
@@ -196,11 +205,15 @@ export class EventFlowStack extends cdk.Stack {
       },
       bundling: {
         assetExcludes: [
+          ".git",
+          "cdk.out",
           "infra/cdk.out",
           "infra/node_modules",
           "infra/dist",
           ".venv",
-          ".git",
+          ".mypy_cache",
+          ".pytest_cache",
+          ".ruff_cache",
           "__pycache__",
           "*.pyc",
         ],
@@ -219,8 +232,8 @@ export class EventFlowStack extends cdk.Stack {
       this,
       "InventoryHandler",
       {
-        entry: "../",
-        index: "infra/lambda/inventory_handler.py",
+        entry: "../src",
+        index: "eventflow/handlers/inventory_handler.py",
         handler: "handler",
         runtime: lambda.Runtime.PYTHON_3_12,
         memorySize: 256,
@@ -230,11 +243,15 @@ export class EventFlowStack extends cdk.Stack {
         },
         bundling: {
           assetExcludes: [
+            ".git",
+            "cdk.out",
             "infra/cdk.out",
             "infra/node_modules",
             "infra/dist",
             ".venv",
-            ".git",
+            ".mypy_cache",
+            ".pytest_cache",
+            ".ruff_cache",
             "__pycache__",
             "*.pyc",
           ],
@@ -254,8 +271,8 @@ export class EventFlowStack extends cdk.Stack {
       this,
       "PaymentHandler",
       {
-        entry: "../",
-        index: "infra/lambda/payment_handler.py",
+        entry: "../src",
+        index: "eventflow/handlers/payment_handler.py",
         handler: "handler",
         runtime: lambda.Runtime.PYTHON_3_12,
         memorySize: 256,
@@ -265,11 +282,15 @@ export class EventFlowStack extends cdk.Stack {
         },
         bundling: {
           assetExcludes: [
+            ".git",
+            "cdk.out",
             "infra/cdk.out",
             "infra/node_modules",
             "infra/dist",
             ".venv",
-            ".git",
+            ".mypy_cache",
+            ".pytest_cache",
+            ".ruff_cache",
             "__pycache__",
             "*.pyc",
           ],
@@ -289,8 +310,8 @@ export class EventFlowStack extends cdk.Stack {
       this,
       "NotificationHandler",
       {
-        entry: "../",
-        index: "infra/lambda/notification_handler.py",
+        entry: "../src",
+        index: "eventflow/handlers/notification_handler.py",
         handler: "handler",
         runtime: lambda.Runtime.PYTHON_3_12,
         memorySize: 256,
@@ -300,11 +321,15 @@ export class EventFlowStack extends cdk.Stack {
         },
         bundling: {
           assetExcludes: [
+            ".git",
+            "cdk.out",
             "infra/cdk.out",
             "infra/node_modules",
             "infra/dist",
             ".venv",
-            ".git",
+            ".mypy_cache",
+            ".pytest_cache",
+            ".ruff_cache",
             "__pycache__",
             "*.pyc",
           ],
@@ -370,6 +395,11 @@ export class EventFlowStack extends cdk.Stack {
       "PAYMENT_RECORDS_TABLE_NAME",
       this.paymentRecordsTable.tableName,
     );
+
+    orderHandler.addEnvironment("EVENT_BUS_NAME", this.bus.eventBusName);
+    inventoryHandler.addEnvironment("EVENT_BUS_NAME", this.bus.eventBusName);
+    paymentHandler.addEnvironment("EVENT_BUS_NAME", this.bus.eventBusName);
+    notificationHandler.addEnvironment("EVENT_BUS_NAME", this.bus.eventBusName);
 
     const paymentSecret = new secretsmanager.Secret(
       this,

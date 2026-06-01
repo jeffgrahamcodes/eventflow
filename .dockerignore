@@ -1,10 +1,11 @@
+.git
 infra/cdk.out
 infra/node_modules
 infra/dist
 .venv
-__pycache__
-.git
-*.pyc
-.pytest_cache
 .mypy_cache
+.pytest_cache
 .ruff_cache
+__pycache__
+*.pyc
+cdk.out
