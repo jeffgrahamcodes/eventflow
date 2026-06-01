@@ -8,8 +8,6 @@ import boto3
 from eventflow.events import (
     OrderCancelled,
     PaymentCharged,
-    PaymentFailed,
-    PaymentFailureReason,
     PaymentRefunded,
     StockReserved,
 )
@@ -32,13 +30,17 @@ def get_payment_credentials() -> dict:
 payment_credentials = get_payment_credentials()
 
 
-def publish(event_obj) -> None:
-    events_client.put_events(Entries=[{
-        "Source": "eventflow.payment-service",
-        "DetailType": event_obj.event_type,
-        "Detail": event_obj.model_dump_json(),
-        "EventBusName": EVENT_BUS_NAME,
-    }])
+def publish(event_obj: Any) -> None:
+    events_client.put_events(
+        Entries=[
+            {
+                "Source": "eventflow.payment-service",
+                "DetailType": event_obj.event_type,
+                "Detail": event_obj.model_dump_json(),
+                "EventBusName": EVENT_BUS_NAME,
+            }
+        ]
+    )
 
 
 def handler(event: dict[str, Any], context: Any) -> None:
@@ -48,40 +50,44 @@ def handler(event: dict[str, Any], context: Any) -> None:
         detail = body["detail"]
 
         if detail_type == "stock.reserved":
-            event_obj = StockReserved.model_validate(detail)
-            charge_amount = Decimal(str(event_obj.total_amount))
-            order_id = str(event_obj.order_id)
+            reserved = StockReserved.model_validate(detail)
+            charge_amount = Decimal(str(reserved.total_amount))
+            order_id = str(reserved.order_id)
 
             charged = PaymentCharged(
-                order_id=event_obj.order_id,
-                customer_id=event_obj.customer_id,
-                correlation_id=event_obj.correlation_id,
-                charge_amount=event_obj.total_amount,
+                order_id=reserved.order_id,
+                customer_id=reserved.customer_id,
+                correlation_id=reserved.correlation_id,
+                charge_amount=reserved.total_amount,
                 payment_method_last_four="1234",
             )
 
-            payment_table.put_item(Item={
-                "payment_id": str(charged.event_id),
-                "order_id": order_id,
-                "charge_amount": charge_amount,
-                "status": "charged",
-            })
+            payment_table.put_item(
+                Item={
+                    "payment_id": str(charged.event_id),
+                    "order_id": order_id,
+                    "charge_amount": charge_amount,
+                    "status": "charged",
+                }
+            )
 
             _pending_charges[order_id] = charge_amount
             publish(charged)
 
         elif detail_type == "order.cancelled":
-            event_obj = OrderCancelled.model_validate(detail)
-            order_id = str(event_obj.order_id)
+            cancelled = OrderCancelled.model_validate(detail)
+            order_id = str(cancelled.order_id)
             refund_amount = _pending_charges.pop(order_id, None)
 
             if refund_amount is not None:
-                publish(PaymentRefunded(
-                    order_id=event_obj.order_id,
-                    customer_id=event_obj.customer_id,
-                    correlation_id=event_obj.correlation_id,
-                    refund_amount=float(refund_amount),
-                ))
+                publish(
+                    PaymentRefunded(
+                        order_id=cancelled.order_id,
+                        customer_id=cancelled.customer_id,
+                        correlation_id=cancelled.correlation_id,
+                        refund_amount=float(refund_amount),
+                    )
+                )
 
         elif detail_type == "payment.charged":
             order_id = str(detail["order_id"])

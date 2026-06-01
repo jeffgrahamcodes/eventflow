@@ -17,13 +17,17 @@ events_client = boto3.client("events")
 EVENT_BUS_NAME = os.environ.get("EVENT_BUS_NAME", "eventflow-dev-bus")
 
 
-def publish(event_obj) -> None:
-    events_client.put_events(Entries=[{
-        "Source": "eventflow.notification-service",
-        "DetailType": event_obj.event_type,
-        "Detail": event_obj.model_dump_json(),
-        "EventBusName": EVENT_BUS_NAME,
-    }])
+def publish(event_obj: Any) -> None:
+    events_client.put_events(
+        Entries=[
+            {
+                "Source": "eventflow.notification-service",
+                "DetailType": event_obj.event_type,
+                "Detail": event_obj.model_dump_json(),
+                "EventBusName": EVENT_BUS_NAME,
+            }
+        ]
+    )
 
 
 def handler(event: dict[str, Any], context: Any) -> None:
@@ -33,41 +37,49 @@ def handler(event: dict[str, Any], context: Any) -> None:
         detail = body["detail"]
 
         if detail_type == "order.confirmed":
-            event_obj = OrderConfirmed.model_validate(detail)
-            print(f"Order confirmed — notifying customer {event_obj.customer_id}")
-            publish(CustomerNotified(
-                order_id=event_obj.order_id,
-                customer_id=event_obj.customer_id,
-                correlation_id=event_obj.correlation_id,
-                reason=NotificationReason.ORDER_CONFIRMED,
-            ))
+            confirmed = OrderConfirmed.model_validate(detail)
+            print(f"Order confirmed — notifying customer {confirmed.customer_id}")
+            publish(
+                CustomerNotified(
+                    order_id=confirmed.order_id,
+                    customer_id=confirmed.customer_id,
+                    correlation_id=confirmed.correlation_id,
+                    reason=NotificationReason.ORDER_CONFIRMED,
+                )
+            )
 
         elif detail_type == "order.cancelled":
-            event_obj = OrderCancelled.model_validate(detail)
-            print(f"Order cancelled — notifying customer {event_obj.customer_id}")
-            publish(CustomerNotified(
-                order_id=event_obj.order_id,
-                customer_id=event_obj.customer_id,
-                correlation_id=event_obj.correlation_id,
-                reason=NotificationReason.ORDER_CANCELLED,
-            ))
+            cancelled = OrderCancelled.model_validate(detail)
+            print(f"Order cancelled — notifying customer {cancelled.customer_id}")
+            publish(
+                CustomerNotified(
+                    order_id=cancelled.order_id,
+                    customer_id=cancelled.customer_id,
+                    correlation_id=cancelled.correlation_id,
+                    reason=NotificationReason.ORDER_CANCELLED,
+                )
+            )
 
         elif detail_type == "payment.failed":
-            event_obj = PaymentFailed.model_validate(detail)
-            print(f"Payment failed — notifying customer {event_obj.customer_id}")
-            publish(CustomerNotified(
-                order_id=event_obj.order_id,
-                customer_id=event_obj.customer_id,
-                correlation_id=event_obj.correlation_id,
-                reason=NotificationReason.PAYMENT_FAILED,
-            ))
+            failed = PaymentFailed.model_validate(detail)
+            print(f"Payment failed — notifying customer {failed.customer_id}")
+            publish(
+                CustomerNotified(
+                    order_id=failed.order_id,
+                    customer_id=failed.customer_id,
+                    correlation_id=failed.correlation_id,
+                    reason=NotificationReason.PAYMENT_FAILED,
+                )
+            )
 
         elif detail_type == "stock.insufficient":
-            event_obj = StockInsufficient.model_validate(detail)
-            print(f"Stock insufficient — notifying customer {event_obj.customer_id}")
-            publish(CustomerNotified(
-                order_id=event_obj.order_id,
-                customer_id=event_obj.customer_id,
-                correlation_id=event_obj.correlation_id,
-                reason=NotificationReason.STOCK_INSUFFICIENT,
-            ))
+            insufficient = StockInsufficient.model_validate(detail)
+            print(f"Stock insufficient — notifying customer {insufficient.customer_id}")
+            publish(
+                CustomerNotified(
+                    order_id=insufficient.order_id,
+                    customer_id=insufficient.customer_id,
+                    correlation_id=insufficient.correlation_id,
+                    reason=NotificationReason.STOCK_INSUFFICIENT,
+                )
+            )
