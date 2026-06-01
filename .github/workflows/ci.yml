@@ -75,5 +75,5 @@ jobs:
         working-directory: infra
 
       - name: Run CDK synth
-        run: npx igitcdk synth --no-staging
+        run: npx cdk synth --no-staging
         working-directory: infra
