@@ -11,7 +11,12 @@ implementation, not a tutorial project.
 
 ## Architecture
 
-Diagram coming in Sprint 3 — AWS infrastructure phase.\_
+![EventFlow AWS Architecture](docs/diagrams/eventflow-architecture.png)
+
+- [Event Flow Diagram](docs/diagrams/event-flow.md) — system topology
+- [Sequence Diagram](docs/diagrams/sequence-diagram.md) — temporal event ordering
+- [ADR-001](docs/adr/ADR-001-event-schema-design.md) — Event schema design
+- [ADR-002](docs/adr/ADR-002-aws-service-selection.md) — AWS service selection
 
 ## Getting Started
 
