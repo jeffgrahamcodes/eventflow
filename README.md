@@ -1,15 +1,22 @@
 # EventFlow
 
-A production-grade, event-driven order processing platform built on AWS 
+[![CI](https://github.com/jeffgrahamcodes/eventflow/actions/workflows/ci.yml/badge.svg)](https://github.com/jeffgrahamcodes/eventflow/actions/workflows/ci.yml)
+
+A production-grade, event-driven order processing platform built on AWS
 serverless — and a developer platform layered on top of it.
 
-EventFlow demonstrates event-driven architecture using Python, Pydantic v2, 
-and AWS (EventBridge, SQS, Lambda, DynamoDB). It is designed as a reference 
+EventFlow demonstrates event-driven architecture using Python, Pydantic v2,
+and AWS (EventBridge, SQS, Lambda, DynamoDB). It is designed as a reference
 implementation, not a tutorial project.
 
 ## Architecture
 
-*Diagram coming in Sprint 3 — AWS infrastructure phase.*
+![EventFlow AWS Architecture](docs/diagrams/eventflow-architecture.png)
+
+- [Event Flow Diagram](docs/diagrams/event-flow.md) — system topology
+- [Sequence Diagram](docs/diagrams/sequence-diagram.md) — temporal event ordering
+- [ADR-001](docs/adr/ADR-001-event-schema-design.md) — Event schema design
+- [ADR-002](docs/adr/ADR-002-aws-service-selection.md) — AWS service selection
 
 ## Getting Started
 
@@ -22,6 +29,7 @@ implementation, not a tutorial project.
 ### Installation
 
 Clone the repo and install dependencies:
+
 ```bash
 git clone git@github.com:jeffgrahamcodes/eventflow.git
 cd eventflow
@@ -29,21 +37,25 @@ uv sync --extra dev
 ```
 
 ### Run the tests
+
 ```bash
 uv run pytest
 ```
 
 ### Run the linter
+
 ```bash
 uv run ruff check .
 ```
 
 ### Run the type checker
+
 ```bash
 uv run mypy src/
 ```
 
 ### Project Structure
+
 ```
 eventflow/
 ├── src/
@@ -60,19 +72,19 @@ eventflow/
 
 ## Architecture Decisions
 
-| ADR | Title | Status |
-|-----|-------|--------|
+| ADR                                                | Title               | Status   |
+| -------------------------------------------------- | ------------------- | -------- |
 | [ADR-001](docs/adr/ADR-001-event-schema-design.md) | Event Schema Design | Accepted |
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|------------|
-| Language | Python 3.12 |
-| Event schemas | Pydantic v2 |
-| Package manager | uv |
-| Linter / formatter | ruff |
-| Type checker | mypy |
-| Testing | pytest |
-| Cloud | AWS (EventBridge, SQS, Lambda, DynamoDB) — Sprint 3 |
-| IaC | AWS CDK (TypeScript) — Sprint 3 |
+| Layer              | Technology                                          |
+| ------------------ | --------------------------------------------------- |
+| Language           | Python 3.12                                         |
+| Event schemas      | Pydantic v2                                         |
+| Package manager    | uv                                                  |
+| Linter / formatter | ruff                                                |
+| Type checker       | mypy                                                |
+| Testing            | pytest                                              |
+| Cloud              | AWS (EventBridge, SQS, Lambda, DynamoDB) — Sprint 3 |
+| IaC                | AWS CDK (TypeScript) — Sprint 3                     |

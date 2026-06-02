@@ -1,10 +1,13 @@
 import * as cdk from "aws-cdk-lib";
+import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as events from "aws-cdk-lib/aws-events";
 import * as sqs from "aws-cdk-lib/aws-sqs";
 import * as targets from "aws-cdk-lib/aws-events-targets";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as pythonLambda from "@aws-cdk/aws-lambda-python-alpha";
 import * as lambdaEventSources from "aws-cdk-lib/aws-lambda-event-sources";
+import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
+import * as cloudwatch from "aws-cdk-lib/aws-cloudwatch";
 import { Construct } from "constructs";
 
 export class EventFlowStack extends cdk.Stack {
@@ -13,6 +16,9 @@ export class EventFlowStack extends cdk.Stack {
   public readonly inventoryQueue: sqs.Queue;
   public readonly paymentQueue: sqs.Queue;
   public readonly notificationQueue: sqs.Queue;
+  public readonly ordersTable: dynamodb.Table;
+  public readonly inventoryTable: dynamodb.Table;
+  public readonly paymentRecordsTable: dynamodb.Table;
 
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
@@ -178,9 +184,18 @@ export class EventFlowStack extends cdk.Stack {
       targets: [new targets.SqsQueue(this.notificationQueue)],
     });
 
+    new events.Rule(this, "OrderPlaced", {
+      eventBus: this.bus,
+      ruleName: "eventflow-order-placed",
+      eventPattern: {
+        detailType: ["order.placed"],
+      },
+      targets: [new targets.SqsQueue(this.orderQueue)],
+    });
+
     const orderHandler = new pythonLambda.PythonFunction(this, "OrderHandler", {
-      entry: "../",
-      index: "infra/lambda/order_handler.py",
+      entry: "../src",
+      index: "eventflow/handlers/order_handler.py",
       handler: "handler",
       runtime: lambda.Runtime.PYTHON_3_12,
       memorySize: 256,
@@ -190,11 +205,15 @@ export class EventFlowStack extends cdk.Stack {
       },
       bundling: {
         assetExcludes: [
+          ".git",
+          "cdk.out",
           "infra/cdk.out",
           "infra/node_modules",
           "infra/dist",
           ".venv",
-          ".git",
+          ".mypy_cache",
+          ".pytest_cache",
+          ".ruff_cache",
           "__pycache__",
           "*.pyc",
         ],
@@ -213,8 +232,8 @@ export class EventFlowStack extends cdk.Stack {
       this,
       "InventoryHandler",
       {
-        entry: "../",
-        index: "infra/lambda/inventory_handler.py",
+        entry: "../src",
+        index: "eventflow/handlers/inventory_handler.py",
         handler: "handler",
         runtime: lambda.Runtime.PYTHON_3_12,
         memorySize: 256,
@@ -224,11 +243,15 @@ export class EventFlowStack extends cdk.Stack {
         },
         bundling: {
           assetExcludes: [
+            ".git",
+            "cdk.out",
             "infra/cdk.out",
             "infra/node_modules",
             "infra/dist",
             ".venv",
-            ".git",
+            ".mypy_cache",
+            ".pytest_cache",
+            ".ruff_cache",
             "__pycache__",
             "*.pyc",
           ],
@@ -248,8 +271,8 @@ export class EventFlowStack extends cdk.Stack {
       this,
       "PaymentHandler",
       {
-        entry: "../",
-        index: "infra/lambda/payment_handler.py",
+        entry: "../src",
+        index: "eventflow/handlers/payment_handler.py",
         handler: "handler",
         runtime: lambda.Runtime.PYTHON_3_12,
         memorySize: 256,
@@ -259,11 +282,15 @@ export class EventFlowStack extends cdk.Stack {
         },
         bundling: {
           assetExcludes: [
+            ".git",
+            "cdk.out",
             "infra/cdk.out",
             "infra/node_modules",
             "infra/dist",
             ".venv",
-            ".git",
+            ".mypy_cache",
+            ".pytest_cache",
+            ".ruff_cache",
             "__pycache__",
             "*.pyc",
           ],
@@ -283,8 +310,8 @@ export class EventFlowStack extends cdk.Stack {
       this,
       "NotificationHandler",
       {
-        entry: "../",
-        index: "infra/lambda/notification_handler.py",
+        entry: "../src",
+        index: "eventflow/handlers/notification_handler.py",
         handler: "handler",
         runtime: lambda.Runtime.PYTHON_3_12,
         memorySize: 256,
@@ -294,11 +321,15 @@ export class EventFlowStack extends cdk.Stack {
         },
         bundling: {
           assetExcludes: [
+            ".git",
+            "cdk.out",
             "infra/cdk.out",
             "infra/node_modules",
             "infra/dist",
             ".venv",
-            ".git",
+            ".mypy_cache",
+            ".pytest_cache",
+            ".ruff_cache",
             "__pycache__",
             "*.pyc",
           ],
@@ -313,5 +344,292 @@ export class EventFlowStack extends cdk.Stack {
     );
 
     this.bus.grantPutEventsTo(notificationHandler);
+
+    this.ordersTable = new dynamodb.Table(this, "OrdersTable", {
+      tableName: "eventflow-orders",
+      partitionKey: {
+        name: "order_id",
+        type: dynamodb.AttributeType.STRING,
+      },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    this.inventoryTable = new dynamodb.Table(this, "InventoryTable", {
+      tableName: "eventflow-inventory",
+      partitionKey: {
+        name: "sku_id",
+        type: dynamodb.AttributeType.STRING,
+      },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    this.paymentRecordsTable = new dynamodb.Table(this, "PaymentRecordsTable", {
+      tableName: "eventflow-payment-records",
+      partitionKey: {
+        name: "payment_id",
+        type: dynamodb.AttributeType.STRING,
+      },
+      sortKey: {
+        name: "order_id",
+        type: dynamodb.AttributeType.STRING,
+      },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    this.ordersTable.grantReadWriteData(orderHandler);
+    this.inventoryTable.grantReadWriteData(inventoryHandler);
+    this.paymentRecordsTable.grantReadWriteData(paymentHandler);
+
+    orderHandler.addEnvironment(
+      "ORDERS_TABLE_NAME",
+      this.ordersTable.tableName,
+    );
+    inventoryHandler.addEnvironment(
+      "INVENTORY_TABLE_NAME",
+      this.inventoryTable.tableName,
+    );
+    paymentHandler.addEnvironment(
+      "PAYMENT_RECORDS_TABLE_NAME",
+      this.paymentRecordsTable.tableName,
+    );
+
+    orderHandler.addEnvironment("EVENT_BUS_NAME", this.bus.eventBusName);
+    inventoryHandler.addEnvironment("EVENT_BUS_NAME", this.bus.eventBusName);
+    paymentHandler.addEnvironment("EVENT_BUS_NAME", this.bus.eventBusName);
+    notificationHandler.addEnvironment("EVENT_BUS_NAME", this.bus.eventBusName);
+
+    const paymentSecret = new secretsmanager.Secret(
+      this,
+      "PaymentCredentials",
+      {
+        secretName: "eventflow/payment-credentials",
+        description: "EventFlow payment service credentials",
+        generateSecretString: {
+          secretStringTemplate: JSON.stringify({
+            api_key: "stub-api-key",
+            endpoint: "https://stub-payment-processor.example.com",
+          }),
+          generateStringKey: "stub_secret",
+        },
+      },
+    );
+
+    paymentSecret.grantRead(paymentHandler);
+
+    paymentHandler.addEnvironment(
+      "PAYMENT_SECRET_ARN",
+      paymentSecret.secretArn,
+    );
+
+    const dashboard = new cloudwatch.Dashboard(this, "EventFlowDashboard", {
+      dashboardName: "EventFlow-Metrics-Dashboard",
+    });
+
+    dashboard.addWidgets(
+      new cloudwatch.GraphWidget({
+        title: "Lambda Invocations",
+        left: [
+          orderHandler.metricInvocations(),
+          inventoryHandler.metricInvocations(),
+          paymentHandler.metricInvocations(),
+          notificationHandler.metricInvocations(),
+        ],
+      }),
+      new cloudwatch.GraphWidget({
+        title: "Lambda Errors",
+        left: [
+          orderHandler.metricErrors(),
+          inventoryHandler.metricErrors(),
+          paymentHandler.metricErrors(),
+          notificationHandler.metricErrors(),
+        ],
+      }),
+      new cloudwatch.GraphWidget({
+        title: "Lambda Duration",
+        left: [
+          orderHandler.metricDuration(),
+          inventoryHandler.metricDuration(),
+          paymentHandler.metricDuration(),
+          notificationHandler.metricDuration(),
+        ],
+      }),
+      new cloudwatch.GraphWidget({
+        title: "SQS Queue Depth",
+        left: [
+          this.orderQueue.metricApproximateNumberOfMessagesVisible(),
+          this.inventoryQueue.metricApproximateNumberOfMessagesVisible(),
+          this.paymentQueue.metricApproximateNumberOfMessagesVisible(),
+          this.notificationQueue.metricApproximateNumberOfMessagesVisible(),
+        ],
+      }),
+      new cloudwatch.GraphWidget({
+        title: "SQS Dead Letter Queue Depth",
+        left: [
+          orderDlq.metricApproximateNumberOfMessagesVisible(),
+          inventoryDlq.metricApproximateNumberOfMessagesVisible(),
+          paymentDlq.metricApproximateNumberOfMessagesVisible(),
+          notificationDlq.metricApproximateNumberOfMessagesVisible(),
+        ],
+      }),
+    );
+
+    const orderDlqAlarm = new cloudwatch.Alarm(this, "OrderDlqAlarm", {
+      metric: orderDlq.metricApproximateNumberOfMessagesVisible(),
+      threshold: 0,
+      evaluationPeriods: 1,
+      comparisonOperator:
+        cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      alarmName: "eventflow-order-dlq-not-empty",
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+
+    const inventoryDlqAlarm = new cloudwatch.Alarm(this, "InventoryDlqAlarm", {
+      metric: inventoryDlq.metricApproximateNumberOfMessagesVisible(),
+      threshold: 0,
+      evaluationPeriods: 1,
+      comparisonOperator:
+        cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      alarmName: "eventflow-inventory-dlq-not-empty",
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+
+    const paymentDlqAlarm = new cloudwatch.Alarm(this, "PaymentDlqAlarm", {
+      metric: paymentDlq.metricApproximateNumberOfMessagesVisible(),
+      threshold: 0,
+      evaluationPeriods: 1,
+      comparisonOperator:
+        cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      alarmName: "eventflow-payment-dlq-not-empty",
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+
+    const notificationDlqAlarm = new cloudwatch.Alarm(
+      this,
+      "NotificationDlqAlarm",
+      {
+        metric: notificationDlq.metricApproximateNumberOfMessagesVisible(),
+        threshold: 0,
+        evaluationPeriods: 1,
+        comparisonOperator:
+          cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+        alarmName: "eventflow-notification-dlq-not-empty",
+        treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+      },
+    );
+
+    const allDlQAlarms = [
+      orderDlqAlarm,
+      inventoryDlqAlarm,
+      paymentDlqAlarm,
+      notificationDlqAlarm,
+    ];
+
+    const anyDlqCompositeAlarm = new cloudwatch.CompositeAlarm(
+      this,
+      "AnyDlqCompositeAlarm",
+      {
+        alarmRule: cloudwatch.AlarmRule.anyOf(...allDlQAlarms),
+      },
+    );
+
+    dashboard.addWidgets(
+      new cloudwatch.AlarmWidget({
+        title: "DLQ Alarm Status",
+        alarm: anyDlqCompositeAlarm,
+      }),
+    );
+
+    const orderHandlerErrorAlarm = new cloudwatch.Alarm(
+      this,
+      "OrderHandlerErrorAlarm",
+      {
+        metric: orderHandler.metricErrors({
+          period: cdk.Duration.minutes(5),
+          statistic: "Sum",
+        }),
+        threshold: 1,
+        evaluationPeriods: 1,
+        comparisonOperator:
+          cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+        alarmName: "eventflow-order-handler-errors",
+        treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+      },
+    );
+
+    const inventoryHandlerErrorAlarm = new cloudwatch.Alarm(
+      this,
+      "InventoryHandlerErrorAlarm",
+      {
+        metric: inventoryHandler.metricErrors({
+          period: cdk.Duration.minutes(5),
+          statistic: "Sum",
+        }),
+        threshold: 1,
+        evaluationPeriods: 1,
+        comparisonOperator:
+          cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+        alarmName: "eventflow-inventory-handler-errors",
+        treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+      },
+    );
+
+    const paymentHandlerErrorAlarm = new cloudwatch.Alarm(
+      this,
+      "PaymentHandlerErrorAlarm",
+      {
+        metric: paymentHandler.metricErrors({
+          period: cdk.Duration.minutes(5),
+          statistic: "Sum",
+        }),
+        threshold: 1,
+        evaluationPeriods: 1,
+        comparisonOperator:
+          cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+        alarmName: "eventflow-payment-handler-errors",
+        treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+      },
+    );
+
+    const notificationHandlerErrorAlarm = new cloudwatch.Alarm(
+      this,
+      "NotificationHandlerErrorAlarm",
+      {
+        metric: notificationHandler.metricErrors({
+          period: cdk.Duration.minutes(5),
+          statistic: "Sum",
+        }),
+        threshold: 1,
+        evaluationPeriods: 1,
+        comparisonOperator:
+          cloudwatch.ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+        alarmName: "eventflow-notification-handler-errors",
+        treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+      },
+    );
+
+    const allLambdaErrorAlarms = [
+      orderHandlerErrorAlarm,
+      inventoryHandlerErrorAlarm,
+      paymentHandlerErrorAlarm,
+      notificationHandlerErrorAlarm,
+    ];
+
+    const anyLambdaErrorCompositeAlarm = new cloudwatch.CompositeAlarm(
+      this,
+      "AnyLambdaErrorCompositeAlarm",
+      {
+        alarmRule: cloudwatch.AlarmRule.anyOf(...allLambdaErrorAlarms),
+      },
+    );
+
+    dashboard.addWidgets(
+      new cloudwatch.AlarmWidget({
+        title: "Lambda Error Alarm Status",
+        alarm: anyLambdaErrorCompositeAlarm,
+      }),
+    );
   }
 }
