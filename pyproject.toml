@@ -1,3 +1,7 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "eventflow"
 version = "0.1.0"
@@ -6,6 +10,7 @@ requires-python = ">=3.12"
 dependencies = [
     "boto3>=1.43.18",
     "pydantic>=2.0",
+    "typer>=0.26.7",
 ]
 
 [project.optional-dependencies]
@@ -38,3 +43,9 @@ addopts = "--cov=src --cov-report=term-missing"
 omit = [
     "src/eventflow/handlers/*",
 ]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/eventflow"]
+
+[project.scripts]
+ef = "eventflow.cli:app"
