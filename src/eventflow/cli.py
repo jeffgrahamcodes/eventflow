@@ -1,8 +1,10 @@
-# src/eventflow/cli.py
+import json
+import os
 from pathlib import Path
+from typing import Any
 
 import typer
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from eventflow import events
 
@@ -162,6 +164,167 @@ def init(
     )
     typer.echo("  2. Add the construct to infra/lib/eventflow-stack.ts")
     typer.echo(f"  3. Run: uv run pytest {test_path.relative_to(PROJECT_ROOT)}")
+
+
+# Maps an event_type prefix to the service that produces it, for chain display.
+EVENT_PRODUCERS = {
+    "order": "OrderService",
+    "stock": "InventoryService",
+    "payment": "PaymentService",
+    "customer": "NotificationService",
+}
+
+
+def _producer_for(event_type: str) -> str:
+    """order.placed -> OrderService"""
+    prefix = event_type.split(".", 1)[0]
+    return EVENT_PRODUCERS.get(prefix, "Unknown")
+
+
+def _emit_local(event_obj: BaseModel) -> None:
+    """Run the event through the in-memory bus and print the resulting chain."""
+    from eventflow.bus import EventBus
+    from eventflow.services.inventory_service import InventoryService
+    from eventflow.services.notification_service import NotificationService
+    from eventflow.services.order_service import OrderService
+    from eventflow.services.payment_service import PaymentService
+
+    bus = EventBus()
+
+    # Collect every published event in emission order. Subscribe the collector
+    # before the services so it observes the initial event too.
+    chain: list[Any] = []
+    for event_type in build_event_registry():
+        bus.subscribe(event_type, chain.append)
+
+    # Register all four services so the full pipeline reacts to the event.
+    OrderService(bus)
+    InventoryService(bus)
+    PaymentService(bus)
+    NotificationService(bus)
+
+    typer.echo("\nRunning in local mode...\n")
+
+    # Services log to stdout as they handle events; suppress that noise so the
+    # printed chain is the clean, ordered summary the developer wants to see.
+    import contextlib
+    import io
+
+    with contextlib.redirect_stdout(io.StringIO()):
+        bus.publish(event_obj)
+
+    if not chain:
+        typer.echo(
+            f"No downstream handlers fired for '{event_obj.event_type}'."  # type: ignore[attr-defined]
+        )
+        typer.echo("The event was emitted but no service consumes it.")
+        return
+
+    typer.echo("Event chain:")
+    for emitted in chain:
+        producer = _producer_for(emitted.event_type)
+        typer.echo(f"  → {emitted.event_type:<22}({producer})")
+
+    typer.echo(
+        f"\n✓ {len(chain)} events emitted. Pipeline completed successfully."
+    )
+
+
+def _emit_aws(event_obj: BaseModel, event_type: str, bus_name: str | None) -> None:
+    """Publish the event to the deployed EventBridge bus via boto3."""
+    import boto3
+    from botocore.exceptions import BotoCoreError, ClientError
+
+    resolved_bus = bus_name or os.environ.get("EVENT_BUS_NAME") or "eventflow-dev-bus"
+    region = (
+        os.environ.get("AWS_REGION")
+        or os.environ.get("AWS_DEFAULT_REGION")
+        or boto3.session.Session().region_name
+        or "us-east-1"
+    )
+
+    typer.echo(f"\nPublishing to EventBridge bus: {resolved_bus} ({region})...\n")
+
+    detail = event_obj.model_dump(mode="json")
+
+    try:
+        client = boto3.client("events", region_name=region)
+        response = client.put_events(
+            Entries=[
+                {
+                    "Source": "eventflow.cli",
+                    "DetailType": event_type,
+                    "Detail": json.dumps(detail),
+                    "EventBusName": resolved_bus,
+                }
+            ]
+        )
+    except (BotoCoreError, ClientError) as e:
+        typer.echo("\nError: Failed to publish to EventBridge.")
+        typer.echo(f"  {e}")
+        raise typer.Exit(code=1)
+
+    if response.get("FailedEntryCount", 0):
+        entry = response["Entries"][0]
+        typer.echo("\nError: EventBridge rejected the event.")
+        typer.echo(f"  {entry.get('ErrorCode')}: {entry.get('ErrorMessage')}")
+        raise typer.Exit(code=1)
+
+    event_id = getattr(event_obj, "event_id", None)
+    typer.echo("✓ Event published successfully.")
+    typer.echo(f"  event_type:  {event_type}")
+    typer.echo(f"  event_id:    {event_id}")
+    typer.echo(f"  bus:         {resolved_bus}")
+    typer.echo("\nRun 'uv run python scripts/smoke_test.py' to verify end-to-end.")
+
+
+@app.command()
+def emit(
+    event_type: str = typer.Option(..., "--event-type", help="Event type to emit"),
+    payload: str = typer.Option(..., "--payload", help="Event payload as JSON"),
+    env: str = typer.Option("local", "--env", help="Target: local or aws"),
+    bus_name: str = typer.Option(
+        None,
+        "--bus-name",
+        help="EventBridge bus name (default: $EVENT_BUS_NAME or eventflow-dev-bus)",
+    ),
+) -> None:
+    """Publish a test event to the local or AWS bus."""
+    registry = build_event_registry()
+
+    # Validate event type
+    if event_type not in registry:
+        typer.echo(f"\nError: Unknown event type '{event_type}'.")
+        typer.echo("  Run 'ef list-events' to see all registered event types.")
+        raise typer.Exit(code=1)
+
+    # Parse JSON payload
+    try:
+        payload_dict = json.loads(payload)
+    except json.JSONDecodeError as e:
+        typer.echo("\nError: Invalid JSON payload.")
+        typer.echo(f"  {e}")
+        raise typer.Exit(code=1)
+
+    # Validate against the event model
+    event_class = registry[event_type]
+    try:
+        event_obj = event_class.model_validate(payload_dict)
+    except ValidationError as e:
+        typer.echo(f"\nError: Payload validation failed for '{event_type}'.")
+        for err in e.errors():
+            loc = ".".join(str(part) for part in err["loc"]) or "(root)"
+            typer.echo(f"  {loc}: {err['msg']}")
+        typer.echo(f"\nRun 'ef list-events {event_type}' to see required fields.")
+        raise typer.Exit(code=1)
+
+    if env == "local":
+        _emit_local(event_obj)
+    elif env == "aws":
+        _emit_aws(event_obj, event_type, bus_name)
+    else:
+        typer.echo(f"\nError: Unknown env '{env}'. Use 'local' or 'aws'.")
+        raise typer.Exit(code=1)
 
 
 if __name__ == "__main__":
