@@ -225,9 +225,7 @@ def _emit_local(event_obj: BaseModel) -> None:
         producer = _producer_for(emitted.event_type)
         typer.echo(f"  → {emitted.event_type:<22}({producer})")
 
-    typer.echo(
-        f"\n✓ {len(chain)} events emitted. Pipeline completed successfully."
-    )
+    typer.echo(f"\n✓ {len(chain)} events emitted. Pipeline completed successfully.")
 
 
 def _emit_aws(event_obj: BaseModel, event_type: str, bus_name: str | None) -> None:
