@@ -2,89 +2,95 @@
 
 [![CI](https://github.com/jeffgrahamcodes/eventflow/actions/workflows/ci.yml/badge.svg)](https://github.com/jeffgrahamcodes/eventflow/actions/workflows/ci.yml)
 
-A production-grade, event-driven order processing platform built on AWS
-serverless — and a developer platform layered on top of it.
+Event-driven order processing on AWS serverless. An order goes in, and four independent services (order, inventory, payment, notification) move it through validation, stock reservation, payment and confirmation by publishing and reacting to events. None of them call each other directly.
 
-EventFlow demonstrates event-driven architecture using Python, Pydantic v2,
-and AWS (EventBridge, SQS, Lambda, DynamoDB). It is designed as a reference
-implementation, not a tutorial project.
+I built it in sprints, the same way I'd run it on a team: tickets, feature branches, PRs into `develop`, ADRs for the decisions that matter. The whole stack deploys from one `cdk deploy`, and a smoke test proves the pipeline end to end against real AWS.
 
-## Architecture
+![EventFlow AWS architecture](docs/diagrams/eventflow-architecture.png)
 
-![EventFlow AWS Architecture](docs/diagrams/eventflow-architecture.png)
+## How an order moves
 
-- [Event Flow Diagram](docs/diagrams/event-flow.md) — system topology
-- [Sequence Diagram](docs/diagrams/sequence-diagram.md) — temporal event ordering
-- [ADR-001](docs/adr/ADR-001-event-schema-design.md) — Event schema design
-- [ADR-002](docs/adr/ADR-002-aws-service-selection.md) — AWS service selection
+```
+order.placed ──► Order svc ──► order.validated ──► Inventory svc
+                                                     │
+                       stock.insufficient ◄──────────┤
+                       (order cancelled)             ▼
+                                              stock.reserved ──► Payment svc
+                                                                    │
+                                    payment.failed ◄────────────────┤
+                                    (order cancelled)               ▼
+                                                            payment.charged ──► Order svc
+                                                                               (status: confirmed)
+```
 
-## Getting Started
+Every arrow is an EventBridge rule matching on `detail-type` and delivering to that service's SQS queue. Each queue has its own dead-letter queue (3 retries) and its own Lambda consumer.
 
-### Prerequisites
+More detail: [event flow](docs/diagrams/event-flow.md) · [sequence diagram](docs/diagrams/sequence-diagram.md)
 
-- Python 3.12+
-- [uv](https://docs.astral.sh/uv/getting-started/installation/) (package manager)
-- Git
+## What's in the stack
 
-### Installation
+All of it is in [`infra/lib/eventflow-stack.ts`](infra/lib/eventflow-stack.ts) (AWS CDK, TypeScript):
 
-Clone the repo and install dependencies:
+- **EventBridge** custom bus, 11 routing rules, and a 30-day event archive for replay
+- **SQS** queue + DLQ per service
+- **Lambda** (Python 3.12) handler per service, least-privilege grants to its own table and the bus
+- **DynamoDB** tables for orders, inventory and payment records (on-demand billing)
+- **Secrets Manager** for payment-processor credentials
+- **CloudWatch** dashboard (invocations, errors, duration, queue depth, DLQ depth), an alarm on every DLQ and every handler, rolled up into two composite alarms
+
+## Design decisions
+
+| ADR | Decision |
+| --- | --- |
+| [ADR-001](docs/adr/ADR-001-event-schema-design.md) | Event schemas as Pydantic v2 models with an envelope (`event_id`, `event_type`, `version`, `timestamp`, `correlation_id`) so every event is validated at the boundary and traceable across services |
+| [ADR-002](docs/adr/ADR-002-aws-service-selection-rationale.md) | EventBridge over SNS (content-based routing on `detail-type` instead of a topic per event), SQS in front of every Lambda, CDK over Terraform |
+
+## Run it locally
+
+Needs Python 3.12+, [uv](https://docs.astral.sh/uv/), and Node 20 if you want to synth the stack.
 
 ```bash
-git clone git@github.com:jeffgrahamcodes/eventflow.git
+git clone https://github.com/jeffgrahamcodes/eventflow.git
 cd eventflow
 uv sync --extra dev
+
+uv run pytest          # 49 tests
+uv run ruff check .    # lint
+uv run mypy src/       # types
 ```
 
-### Run the tests
+The service layer in `src/eventflow/services/` runs against an in-memory bus (`bus.py`), so the business logic is testable without AWS.
+
+## Deploy
 
 ```bash
-uv run pytest
+cd infra
+npm ci
+npx cdk deploy
+
+# then, from the repo root, push a real order through:
+uv run python scripts/smoke_test.py
 ```
 
-### Run the linter
+The smoke test publishes an `order.placed` event to the live bus and polls DynamoDB until the order, inventory and payment records all show up.
 
-```bash
-uv run ruff check .
-```
+## CI/CD
 
-### Run the type checker
+- **Every PR into `develop`:** ruff lint + format check, mypy, pytest with an 80% coverage gate, and `cdk synth`
+- **Every push to `main`:** `cdk deploy` via GitHub Actions
 
-```bash
-uv run mypy src/
-```
+## Known gaps
 
-### Project Structure
+I'd rather list these than have you find them:
 
-```
-eventflow/
-├── src/
-│   └── eventflow/        # Application source
-│       └── events/       # Domain event models
-├── tests/                # Test suite mirrors src/ structure
-├── docs/
-│   ├── adr/              # Architecture Decision Records
-│   └── diagrams/         # Event flow and architecture diagrams
-├── infra/                # AWS CDK infrastructure (Sprint 3)
-├── pyproject.toml        # Project config, dependencies, tool settings
-└── CONTRIBUTING.md       # Branching strategy and commit conventions
-```
+- **Some state lives in Lambda memory.** Inventory checks read a seeded dict and the payment service tracks pending charges in a module variable. Both reset on cold start. Next step is reading stock from the inventory table with a conditional update.
+- **No idempotency yet.** SQS delivers at least once, so a redelivered message can double-write. Plan is a conditional put keyed on `event_id`.
+- **The Lambda order handler doesn't emit `order.confirmed` or `order.cancelled` yet.** The rules and the notification consumer exist, and the in-memory service layer does emit them; the handler just updates status.
+- **Payment is a stub.** Credentials come from Secrets Manager, but there's no real processor behind them.
+- **Handlers are excluded from unit-test coverage.** They're covered by the smoke test against real AWS instead.
 
-## Architecture Decisions
+## Tech
 
-| ADR                                                | Title               | Status   |
-| -------------------------------------------------- | ------------------- | -------- |
-| [ADR-001](docs/adr/ADR-001-event-schema-design.md) | Event Schema Design | Accepted |
+Python 3.12 · Pydantic v2 · boto3 · uv · ruff · mypy · pytest · AWS CDK (TypeScript) · EventBridge · SQS · Lambda · DynamoDB · Secrets Manager · CloudWatch · GitHub Actions
 
-## Tech Stack
-
-| Layer              | Technology                                          |
-| ------------------ | --------------------------------------------------- |
-| Language           | Python 3.12                                         |
-| Event schemas      | Pydantic v2                                         |
-| Package manager    | uv                                                  |
-| Linter / formatter | ruff                                                |
-| Type checker       | mypy                                                |
-| Testing            | pytest                                              |
-| Cloud              | AWS (EventBridge, SQS, Lambda, DynamoDB) — Sprint 3 |
-| IaC                | AWS CDK (TypeScript) — Sprint 3                     |
+See [CONTRIBUTING.md](CONTRIBUTING.md) for branching and commit conventions.
